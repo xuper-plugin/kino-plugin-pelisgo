@@ -45,7 +45,7 @@ function readSettings(kino) {
 var kino_plugin_default = {
   id: "pelisgo",
   name: "Pelisgo",
-  version: "0.1.2",
+  version: "0.1.3",
   apiVersion: 20,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -700,6 +700,7 @@ var TABS = [
 var TAB_IDS = TABS.map((t) => t.id);
 var SUPPORT_URL = "https://ko-fi.com/xuperplugins";
 var twin = (es, en, field = "text") => ({ [field]: es, [field + "En"]: en });
+var keyOf = (s) => String(s || "").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 40);
 function supportNode(device) {
   if (device === "tv") {
     return {
@@ -818,7 +819,7 @@ function makeScreen({ kino, loadHome }) {
         mergeWithKinoBar: true,
         dense: true,
         divider: false,
-        leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atr\xE1s", "Back", "tooltip"), onPressed: "back" },
+        leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atr\xE1s", "Back", "labelText"), onPressed: "back" },
         title: "Pelisgo"
       },
       body: { type: "SingleChildScrollView", key: "setp", children: [
@@ -835,7 +836,7 @@ function makeScreen({ kino, loadHome }) {
       mergeWithKinoBar: true,
       dense: true,
       divider: false,
-      leading: { type: "IconButton", key: "backSearch", icon: "arrow_back", ...twin("Cerrar", "Close", "tooltip"), onPressed: "close_search" },
+      leading: { type: "IconButton", key: "backSearch", icon: "arrow_back", ...twin("Cerrar", "Close", "labelText"), onPressed: "close_search" },
       title: {
         type: "TextField",
         key: "q",
@@ -854,10 +855,10 @@ function makeScreen({ kino, loadHome }) {
       mergeWithKinoBar: true,
       dense: true,
       divider: false,
-      leading: { type: "IconButton", key: "close", icon: "close", ...twin("Cerrar", "Close", "tooltip"), onPressed: { go: { close: true } } },
+      leading: { type: "IconButton", key: "close", icon: "close", ...twin("Cerrar", "Close", "labelText"), onPressed: { go: { close: true } } },
       actions: [
-        { type: "IconButton", key: "searchBtn", icon: "search", ...twin("Buscar", "Search", "tooltip"), onPressed: "open_search" },
-        { type: "IconButton", key: "settingsBtn", icon: "settings", ...twin("Ajustes", "Settings", "tooltip"), onPressed: { event: "go", arg: "settings" } }
+        { type: "IconButton", key: "searchBtn", icon: "search", ...twin("Buscar", "Search", "labelText"), onPressed: "open_search" },
+        { type: "IconButton", key: "settingsBtn", icon: "settings", ...twin("Ajustes", "Settings", "labelText"), onPressed: { event: "go", arg: "settings" } }
       ],
       title: "Pelisgo"
     };
@@ -869,9 +870,9 @@ function makeScreen({ kino, loadHome }) {
       if (slides.length) banner = hero(slides);
       for (const r of rows) {
         if (!r.items.length) continue;
-        body.push({ type: "Column", key: "row-" + r.title, gap: 8, children: [
+        body.push({ type: "Column", key: "row-" + keyOf(r.title), gap: 8, children: [
           { type: "Text", style: "h4", text: r.title, textEn: r.titleEn },
-          cardRow(r.items, "cr-" + r.title)
+          cardRow(r.items, "cr-" + keyOf(r.title))
         ] });
       }
       if (!body.length) body.push({ type: "Text", ...twin("No hay nada por aqu\xED todav\xEDa.", "Nothing here yet.", "text"), color: "muted" });

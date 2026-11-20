@@ -12,6 +12,8 @@ const TABS = [
 const TAB_IDS = TABS.map((t) => t.id);
 const SUPPORT_URL = "https://ko-fi.com/xuperplugins";
 const twin = (es, en, field = "text") => ({ [field]: es, [field + "En"]: en });
+// Widget keys must be [A-Za-z0-9_-]; row titles carry spaces and accents, so sanitize before using one as a key.
+const keyOf = (s) => String(s || "").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 40);
 
 /** The donate affordance: a QR on TV (a remote can't open a link), a heart button elsewhere. */
 function supportNode(device) {
@@ -94,7 +96,7 @@ export function makeScreen({ kino, loadHome }) {
     return {
       type: "Scaffold",
       appBar: { type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
-        leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atrás", "Back", "tooltip"), onPressed: "back" },
+        leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atrás", "Back", "labelText"), onPressed: "back" },
         title: "Pelisgo" },
       body: { type: "SingleChildScrollView", key: "setp", children: [
         { type: "Column", padding: 24, gap: 16, crossAxisAlignment: "stretch", children: [
@@ -108,14 +110,14 @@ export function makeScreen({ kino, loadHome }) {
   function browseView(tab, st, device) {
     const appBar = st.searching
       ? { type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
-          leading: { type: "IconButton", key: "backSearch", icon: "arrow_back", ...twin("Cerrar", "Close", "tooltip"), onPressed: "close_search" },
+          leading: { type: "IconButton", key: "backSearch", icon: "arrow_back", ...twin("Cerrar", "Close", "labelText"), onPressed: "close_search" },
           title: { type: "TextField", key: "q", kind: "search", autofocus: true, hintText: "Buscar en Pelisgo", hintTextEn: "Search Pelisgo",
             onSubmitted: "search", trailingIcon: "search", trailingLabel: "Buscar", trailingLabelEn: "Search", onTrailingTap: "search" } }
       : { type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
-          leading: { type: "IconButton", key: "close", icon: "close", ...twin("Cerrar", "Close", "tooltip"), onPressed: { go: { close: true } } },
+          leading: { type: "IconButton", key: "close", icon: "close", ...twin("Cerrar", "Close", "labelText"), onPressed: { go: { close: true } } },
           actions: [
-            { type: "IconButton", key: "searchBtn", icon: "search", ...twin("Buscar", "Search", "tooltip"), onPressed: "open_search" },
-            { type: "IconButton", key: "settingsBtn", icon: "settings", ...twin("Ajustes", "Settings", "tooltip"), onPressed: { event: "go", arg: "settings" } },
+            { type: "IconButton", key: "searchBtn", icon: "search", ...twin("Buscar", "Search", "labelText"), onPressed: "open_search" },
+            { type: "IconButton", key: "settingsBtn", icon: "settings", ...twin("Ajustes", "Settings", "labelText"), onPressed: { event: "go", arg: "settings" } },
           ],
           title: "Pelisgo" };
 
@@ -127,8 +129,8 @@ export function makeScreen({ kino, loadHome }) {
       if (slides.length) banner = hero(slides);
       for (const r of rows) {
         if (!r.items.length) continue;
-        body.push({ type: "Column", key: "row-" + r.title, gap: 8, children: [
-          { type: "Text", style: "h4", text: r.title, textEn: r.titleEn }, cardRow(r.items, "cr-" + r.title),
+        body.push({ type: "Column", key: "row-" + keyOf(r.title), gap: 8, children: [
+          { type: "Text", style: "h4", text: r.title, textEn: r.titleEn }, cardRow(r.items, "cr-" + keyOf(r.title)),
         ] });
       }
       if (!body.length) body.push({ type: "Text", ...twin("No hay nada por aquí todavía.", "Nothing here yet.", "text"), color: "muted" });

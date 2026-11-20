@@ -44,12 +44,15 @@ function installGateView(device) {
 
 // ---- widget helpers ----
 
-const card = (it) => ({
-  type: "posterCard", key: "c-" + it.id, title: it.title, ...(it.poster ? { image: it.poster } : {}),
-  ...(it.year ? { subtitle: String(it.year) } : {}),
-  onPressed: { go: { title: { ref: it.ref, kind: it.kind, id: it.id, title: it.title } } },
+// Kino's poster card takes the whole item; a movie/series opens its native title page (play / episodes) on tap.
+const card = (it, scope) => ({
+  type: "titleCard", key: `${scope}-${it.id}`, size: "medium", item: it,
+  onTap: { go: { title: { ref: it.ref, kind: it.kind, id: it.id, title: it.title } } },
 });
-const cardRow = (items, key) => ({ type: "Row", key, gap: 12, scroll: true, children: items.slice(0, 24).map(card) });
+const cardRow = (items, key) => ({
+  type: "SingleChildScrollView", key: key + "-s", direction: "horizontal",
+  children: [{ type: "Row", key: key + "-r", gap: 12, children: items.slice(0, 24).map((it) => card(it, key)) }],
+});
 
 const slide = (it) => ({
   type: "heroCard", key: "s-" + it.id, h: { compact: 200, expanded: 240 }, title: it.title,
@@ -122,7 +125,7 @@ export function makeScreen({ kino, loadHome, searchItems }) {
       appBar: { type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
         leading: { type: "IconButton", key: "close", icon: "close", ...twin("Cerrar", "Close", "tooltip"), onPressed: { go: { close: true } } },
         actions: tv ? [{ type: "IconButton", key: "searchButton", icon: "search", ...twin("Buscar", "Search", "tooltip"), onPressed: "openSearch" }, gear] : [gear],
-        title: tv ? { type: "Row", key: "tr", gap: 24, crossAxisAlignment: "center", children: [logo(), tabBar(tab)] } : logo() },
+        title: tv ? { type: "Row", key: "tr", gap: 24, crossAxisAlignment: "center", children: [logo(), tabBar(tab)] } : "Pelisgo" },
       ...(tv ? {} : { floatingActionButton: { type: "FloatingActionButton", key: "fab", icon: "search", ...twin("Buscar", "Search", "tooltip"), onPressed: "openSearch" } }),
       body: { type: "Column", key: "page", children: [
         ...(tv ? [] : [{ type: "Column", key: "tabsRow", padding: { compact: 0, expanded: 24 }, children: [tabBar(tab)] }]),
@@ -143,12 +146,12 @@ export function makeScreen({ kino, loadHome, searchItems }) {
     ] };
     const body = [form];
     if (status === "fail") body.push({ type: "MaterialBanner", key: "sfail", role: "error", ...twin("La búsqueda falló.", "Search failed."), action: { ...twin("Reintentar", "Retry", "label"), onTap: "sretry" } });
-    else if (status === "done" && items) body.push(items.length ? { type: "Grid", key: "res", minItemWidth: 120, gap: 12, children: items.slice(0, 60).map(card) } : { type: "Text", ...twin("Sin resultados.", "No results.", "text"), color: "muted" });
+    else if (status === "done" && items) body.push(items.length ? { type: "GridView", key: "res", columns: { compact: 3, expanded: 6 }, children: items.slice(0, 60).map((it) => card(it, "res")) } : { type: "Text", ...twin("Sin resultados.", "No results.", "text"), color: "muted" });
     else if (status === "loading") body.push(railSkeleton(1));
     return {
       type: "Scaffold",
       appBar: { type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
-        leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atrás", "Back", "tooltip"), onPressed: "back" }, title: logo() },
+        leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atrás", "Back", "tooltip"), onPressed: "back" }, title: "Pelisgo" },
       body: { type: "SingleChildScrollView", key: "sp", children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] },
       ...(status === "loading" ? { every: { ms: 1000, event: "stick" } } : {}),
     };
@@ -160,7 +163,7 @@ export function makeScreen({ kino, loadHome, searchItems }) {
     const st = c.state && typeof c.state === "object" ? c.state : {};
     if (c.route && c.route.name === "settings") {
       return { type: "Scaffold", appBar: { type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
-          leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atrás", "Back", "tooltip"), onPressed: "back" }, title: logo() },
+          leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atrás", "Back", "tooltip"), onPressed: "back" }, title: "Pelisgo" },
         body: { type: "SingleChildScrollView", key: "setp", children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, children: [{ type: "settings", key: "form" }] }] } };
     }
     if (c.route && c.route.name === "search") return searchView(st, c.device);

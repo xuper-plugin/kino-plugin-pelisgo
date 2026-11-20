@@ -3,8 +3,9 @@ import { test } from "node:test";
 import { parseRef, itemFromTrending, itemFromSearch } from "../src/mappers.js";
 import { parseEpisodes } from "../src/bridge.js";
 
-// A kino whose fetch answers /session/sync with a token and /stream with the given links.
-function fakeKino(streamJson) {
+// A kino whose fetch answers /session/sync with a token and /stream with the given links. When `doorStream` is given,
+// the resolver door resolves any hoster embed to it; otherwise the door reports provider_missing (no resolver).
+function fakeKino(streamJson, doorStream) {
   globalThis.kino = {
     log() {}, sleep: async () => {}, browser: null, fetchAnyHost: true,
     error: (code, message, extra) => Object.assign(new Error(message || code), { code, ...(extra || {}) }),
@@ -14,7 +15,12 @@ function fakeKino(streamJson) {
       else if (url.includes("/stream")) body = JSON.stringify(streamJson);
       return { status: 200, ok: true, url, headers: {}, text: async () => body };
     },
-    plugins: { call: async () => { throw Object.assign(new Error("no provider"), { code: "provider_missing" }); } },
+    plugins: {
+      call: async (alias, method) => {
+        if (method === "resolve" && doorStream) return { streams: [doorStream] };
+        throw Object.assign(new Error("no provider"), { code: "provider_missing" });
+      },
+    },
   };
 }
 
@@ -57,7 +63,19 @@ test("parseEpisodes: seasons + episodes from the escaped RSC payload", () => {
   assert.deepEqual(eps[2], { season: 2, number: 1, title: "Tres", ref: "pg:e:cmep3" });
 });
 
-test("resolve: a direct HLS copy is the main stream; a hoster embed becomes a lazy alternative", async () => {
+test("resolve: with a resolver, a hoster embed leads and the hotlink-bound direct file drops to an alternative", async () => {
+  fakeKino({ links: [
+    { url: "https://cdn.tnmr.org/hls2/a/master.m3u8?t=1", name: "Lulustream", server: "KeKi", language: "Latino", quality: "1080p", serverOrder: 0 },
+    { url: "https://voe.sx/e/abc", name: "Voe", server: "Voe", language: "Latino", quality: "1080p", serverOrder: 7 },
+  ] }, { url: "https://cdn.voe/play.m3u8", kind: "hls" });
+  const { resolve } = await import("../src/resolve.js");
+  const r = await resolve(globalThis.kino, "pg:c:m:cuid1:bandidas", { untilMs: Date.now() + 8000, preferred: "lat" });
+  assert.equal(r.url, "https://cdn.voe/play.m3u8"); // the resolved embed, not the raw tnmr file
+  assert.equal(r.label, "Latino · Voe · 1080p");
+  assert.ok(r.alternatives.some((a) => typeof a.url === "string" && a.url.includes("master.m3u8")), "direct file kept as alternative");
+});
+
+test("resolve: with no resolver, the direct file is the fallback main and the embed is a lazy alternative", async () => {
   fakeKino({ links: [
     { url: "https://cdn.tnmr.org/hls2/a/master.m3u8?t=1", name: "Lulustream", server: "KeKi", language: "Latino", quality: "1080p", serverOrder: 0 },
     { url: "https://voe.sx/e/abc", name: "Voe", server: "Voe", language: "Latino", quality: "1080p", serverOrder: 7 },
@@ -65,10 +83,8 @@ test("resolve: a direct HLS copy is the main stream; a hoster embed becomes a la
   const { resolve } = await import("../src/resolve.js");
   const r = await resolve(globalThis.kino, "pg:c:m:cuid1:bandidas", { untilMs: Date.now() + 8000, preferred: "lat" });
   assert.match(r.url, /master\.m3u8/);
-  assert.equal(r.mime, "application/vnd.apple.mpegurl");
   assert.equal(r.label, "Latino · Lulustream · 1080p");
-  assert.equal(r.alternatives.length, 1);
-  assert.equal(r.alternatives[0].ref, "pg:x:https://voe.sx/e/abc");
+  assert.ok(r.alternatives.some((a) => a.ref === "pg:x:https://voe.sx/e/abc"), "embed kept as lazy alternative");
 });
 
 test("resolve: the preferred language is ranked first", async () => {

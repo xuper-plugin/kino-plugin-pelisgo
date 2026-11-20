@@ -20,13 +20,19 @@ function labelOf(link) {
   return [link.language, link.name || link.server, link.quality].filter(Boolean).join(" · ").slice(0, 48);
 }
 
-/** Best copy first: the person's language, then higher resolution, then a direct file over a hoster embed, then the site's order. */
+/**
+ * Best copy first: the person's language, then higher resolution, then a RESOLVABLE EMBED over a bare direct file,
+ * then the site's order. The "direct" copies (Lulustream/"KeKi" on *.tnmr.org) are hotlink/IP-bound: Kino, like any
+ * client off the page, often gets a 403 and shows a dead live-audio player, so they go LAST and the resolver's own
+ * servers (okru, voe, …) lead — they come back as proper VOD streams with the right headers. The direct file stays
+ * as a lower alternative (it does play on some setups).
+ */
 function rank(links, preferred) {
   const lr = (l) => { const n = normLang(l); return n === preferred ? -1 : (LANG_FALLBACK[n] ?? 3); };
   return [...links].sort((a, b) =>
     (lr(a.language) - lr(b.language)) ||
     (qNum(b.quality) - qNum(a.quality)) ||
-    ((isDirect(b.url) ? 1 : 0) - (isDirect(a.url) ? 1 : 0)) ||
+    ((isDirect(a.url) ? 1 : 0) - (isDirect(b.url) ? 1 : 0)) ||
     ((a.serverOrder || 0) - (b.serverOrder || 0)));
 }
 

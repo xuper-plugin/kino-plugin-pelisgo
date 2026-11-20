@@ -45,7 +45,7 @@ function readSettings(kino) {
 var kino_plugin_default = {
   id: "pelisgo",
   name: "Pelisgo",
-  version: "0.1.0",
+  version: "0.1.2",
   apiVersion: 20,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -117,6 +117,10 @@ var kino_plugin_default = {
     "series"
   ],
   color: "#1E6FD9",
+  section: {
+    label: "Pelisgo",
+    labelEn: "Pelisgo"
+  },
   theme: {
     accent: "#1E6FD9",
     onAccent: "#FFFFFF",
@@ -696,7 +700,6 @@ var TABS = [
 var TAB_IDS = TABS.map((t) => t.id);
 var SUPPORT_URL = "https://ko-fi.com/xuperplugins";
 var twin = (es, en, field = "text") => ({ [field]: es, [field + "En"]: en });
-var logo = () => ({ type: "Text", text: "Pelisgo", textEn: "Pelisgo", style: "h4" });
 function supportNode(device) {
   if (device === "tv") {
     return {
@@ -790,9 +793,8 @@ var tabBar = (active) => ({
   onChanged: "tab",
   tabs: TABS.map((t) => ({ value: t.id, ...twin(t.es, t.en, "label") }))
 });
-function makeScreen({ kino, loadHome, searchItems: searchItems2 }) {
+function makeScreen({ kino, loadHome }) {
   let home2 = null;
-  let found = null;
   const log = (...a) => {
     try {
       kino.log("[pelisgo]", ...a);
@@ -808,15 +810,57 @@ function makeScreen({ kino, loadHome, searchItems: searchItems2 }) {
       ...home2.series.length ? [{ title: "Tendencias en series", titleEn: "Trending series", items: home2.series }] : []
     ];
   };
-  function browseView(tab, st, device) {
-    const gear = {
-      type: "IconButton",
-      key: "settingsButton",
-      icon: "settings",
-      ...twin("Ajustes", "Settings", "tooltip"),
-      onPressed: { event: "go", arg: "settings" }
+  function settingsView(device) {
+    return {
+      type: "Scaffold",
+      appBar: {
+        type: "AppBar",
+        mergeWithKinoBar: true,
+        dense: true,
+        divider: false,
+        leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atr\xE1s", "Back", "tooltip"), onPressed: "back" },
+        title: "Pelisgo"
+      },
+      body: { type: "SingleChildScrollView", key: "setp", children: [
+        { type: "Column", padding: 24, gap: 16, crossAxisAlignment: "stretch", children: [
+          { type: "Text", text: "Ajustes", textEn: "Settings", style: "h3" },
+          supportNode(device)
+        ] }
+      ] }
     };
-    const tv = device === "tv";
+  }
+  function browseView(tab, st, device) {
+    const appBar = st.searching ? {
+      type: "AppBar",
+      mergeWithKinoBar: true,
+      dense: true,
+      divider: false,
+      leading: { type: "IconButton", key: "backSearch", icon: "arrow_back", ...twin("Cerrar", "Close", "tooltip"), onPressed: "close_search" },
+      title: {
+        type: "TextField",
+        key: "q",
+        kind: "search",
+        autofocus: true,
+        hintText: "Buscar en Pelisgo",
+        hintTextEn: "Search Pelisgo",
+        onSubmitted: "search",
+        trailingIcon: "search",
+        trailingLabel: "Buscar",
+        trailingLabelEn: "Search",
+        onTrailingTap: "search"
+      }
+    } : {
+      type: "AppBar",
+      mergeWithKinoBar: true,
+      dense: true,
+      divider: false,
+      leading: { type: "IconButton", key: "close", icon: "close", ...twin("Cerrar", "Close", "tooltip"), onPressed: { go: { close: true } } },
+      actions: [
+        { type: "IconButton", key: "searchBtn", icon: "search", ...twin("Buscar", "Search", "tooltip"), onPressed: "open_search" },
+        { type: "IconButton", key: "settingsBtn", icon: "settings", ...twin("Ajustes", "Settings", "tooltip"), onPressed: { event: "go", arg: "settings" } }
+      ],
+      title: "Pelisgo"
+    };
     const rows = rowsFor(tab);
     const body = [];
     let banner = null;
@@ -845,18 +889,9 @@ function makeScreen({ kino, loadHome, searchItems: searchItems2 }) {
     }
     return {
       type: "Scaffold",
-      appBar: {
-        type: "AppBar",
-        mergeWithKinoBar: true,
-        dense: true,
-        divider: false,
-        leading: { type: "IconButton", key: "close", icon: "close", ...twin("Cerrar", "Close", "tooltip"), onPressed: { go: { close: true } } },
-        actions: tv ? [{ type: "IconButton", key: "searchButton", icon: "search", ...twin("Buscar", "Search", "tooltip"), onPressed: "openSearch" }, gear] : [gear],
-        title: tv ? { type: "Row", key: "tr", gap: 24, crossAxisAlignment: "center", children: [logo(), tabBar(tab)] } : "Pelisgo"
-      },
-      ...tv ? {} : { floatingActionButton: { type: "FloatingActionButton", key: "fab", icon: "search", ...twin("Buscar", "Search", "tooltip"), onPressed: "openSearch" } },
+      appBar,
       body: { type: "Column", key: "page", children: [
-        ...tv ? [] : [{ type: "Column", key: "tabsRow", padding: { compact: 0, expanded: 24 }, children: [tabBar(tab)] }],
+        tabBar(tab),
         { type: "SingleChildScrollView", key: "scroll-" + tab, flex: 1, children: [
           ...banner ? [banner] : [],
           { type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }
@@ -865,57 +900,17 @@ function makeScreen({ kino, loadHome, searchItems: searchItems2 }) {
       ...home2 || st.failed ? {} : { every: { ms: 1200, event: "tick" } }
     };
   }
-  function searchView(st, device) {
-    const q = typeof st.sq === "string" ? st.sq : "";
-    const items = found && found.q === q ? found.items : null;
-    const status = q === "" ? "idle" : st.sstate === "fail" ? "fail" : items ? "done" : "loading";
-    const form = { type: "Form", key: "sf", onSubmitted: "search", gap: 8, children: [
-      { type: "TextField", key: "q", kind: "text", value: q, ...twin("Buscar en Pelisgo", "Search Pelisgo", "labelText"), maxLength: 100, autofocus: true },
-      { type: "ElevatedButton", key: "sgo", ...twin("Buscar", "Search", "labelText"), icon: "search", submit: true }
-    ] };
-    const body = [form];
-    if (status === "fail") body.push({ type: "MaterialBanner", key: "sfail", role: "error", ...twin("La b\xFAsqueda fall\xF3.", "Search failed."), action: { ...twin("Reintentar", "Retry", "label"), onTap: "sretry" } });
-    else if (status === "done" && items) body.push(items.length ? { type: "GridView", key: "res", columns: { compact: 3, expanded: 6 }, children: items.slice(0, 60).map((it) => card(it, "res")) } : { type: "Text", ...twin("Sin resultados.", "No results.", "text"), color: "muted" });
-    else if (status === "loading") body.push(railSkeleton(1));
-    return {
-      type: "Scaffold",
-      appBar: {
-        type: "AppBar",
-        mergeWithKinoBar: true,
-        dense: true,
-        divider: false,
-        leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atr\xE1s", "Back", "tooltip"), onPressed: "back" },
-        title: "Pelisgo"
-      },
-      body: { type: "SingleChildScrollView", key: "sp", children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] },
-      ...status === "loading" ? { every: { ms: 1e3, event: "stick" } } : {}
-    };
-  }
   function view(ctx) {
     const c = ctx && typeof ctx === "object" ? ctx : {};
     if (!(c.installed && c.installed[RESOLVER_REPO])) return installGateView(c.device);
     const st = c.state && typeof c.state === "object" ? c.state : {};
-    if (c.route && c.route.name === "settings") {
-      return {
-        type: "Scaffold",
-        appBar: {
-          type: "AppBar",
-          mergeWithKinoBar: true,
-          dense: true,
-          divider: false,
-          leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atr\xE1s", "Back", "tooltip"), onPressed: "back" },
-          title: "Pelisgo"
-        },
-        body: { type: "SingleChildScrollView", key: "setp", children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, children: [{ type: "settings", key: "form" }] }] }
-      };
-    }
-    if (c.route && c.route.name === "search") return searchView(st, c.device);
+    if (c.route && c.route.name === "settings") return settingsView(c.device);
     const tab = TAB_IDS.includes(st.tab) ? st.tab : TAB_IDS[0];
     return browseView(tab, st, c.device);
   }
   const events = {
     open({ state }) {
-      return { state: { tab: TAB_IDS.includes(state.tab) ? state.tab : TAB_IDS[0], failed: false } };
+      return { state: { tab: TAB_IDS.includes(state.tab) ? state.tab : TAB_IDS[0], failed: false, searching: false } };
     },
     async tick() {
       if (home2) return null;
@@ -935,35 +930,24 @@ function makeScreen({ kino, loadHome, searchItems: searchItems2 }) {
       const t = TAB_IDS.includes(value) ? value : TAB_IDS.includes(arg) ? arg : null;
       return t ? { state: { tab: t } } : null;
     },
-    openSearch() {
-      return { route: { push: "search" }, state: { sq: "", sstate: null } };
+    // Search: the bar becomes a field; submitting hands the query to Kino's native search.
+    open_search() {
+      return { state: { searching: true } };
     },
-    search({ value, route }) {
-      const q = value && typeof value.q === "string" ? value.q.trim().slice(0, 100) : "";
-      if (!q) return null;
-      const state = { sq: q, sstate: "loading" };
-      return route && route.name === "search" ? { state } : { route: { push: "search" }, state };
+    close_search() {
+      return { state: { searching: false } };
     },
-    async stick({ state }) {
-      const q = typeof state.sq === "string" ? state.sq : "";
-      if (!q || state.sstate !== "loading") return null;
-      try {
-        found = { q, items: await searchItems2(q) || [] };
-        return { state: { sstate: "done" } };
-      } catch (e) {
-        log("search", e && e.code || "error");
-        return { state: { sstate: "fail" } };
-      }
-    },
-    sretry({ state }) {
-      return state.sq ? { state: { sstate: "loading" } } : null;
+    search({ value, state }) {
+      const typed = value != null && String(value).trim() ? value : state.inputs && state.inputs.q;
+      const q = String(typed == null ? "" : typed).trim().slice(0, 100);
+      return q ? { go: { search: { q } }, state: { searching: false } } : { state: { searching: false } };
     },
     go({ arg }) {
       return arg === "settings" ? { route: { push: "settings" }, state: { fromBrowse: true } } : null;
     },
     back({ state, route }) {
       if (route && route.name === "settings" && !state.fromBrowse) return { close: true };
-      return { route: { pop: true }, state: { sq: null, sstate: null } };
+      return { route: { pop: true } };
     }
   };
   async function event(ev) {
@@ -997,6 +981,18 @@ async function browse(ref, cursor) {
   const dl = callDeadline(kino, "browse");
   return browsePage(kino, ref, cursor, { untilMs: dl.end });
 }
+async function section() {
+  const kino = getKino();
+  const dl = callDeadline(kino, "section");
+  let rows = [];
+  try {
+    rows = await homeRows(kino, { untilMs: dl.end });
+  } catch (e) {
+    kino.log("[pelisgo]", "section", e && e.code || "error");
+  }
+  const first = rows[0] && rows[0].items.find((i) => i.backdrop);
+  return { rows, ...first ? { hero: { title: first.title, image: first.backdrop } } : {} };
+}
 async function episodes2(ref) {
   const kino = getKino();
   const dl = callDeadline(kino, "episodes");
@@ -1016,8 +1012,7 @@ var theScreen = () => screenInstance ?? (screenInstance = makeScreen({
     const rows = await homeRows(kino, { untilMs: callDeadline(kino, "section").end });
     const byId = (id) => (rows.find((r) => r.id === id) || { items: [] }).items;
     return { movies: byId("pg-trending-movie"), series: byId("pg-trending-series") };
-  },
-  searchItems: (q) => searchItems(getKino(), q, { untilMs: callDeadline(getKino(), "section").end })
+  }
 }));
 async function screen(ctx) {
   await null;
@@ -1035,5 +1030,6 @@ export {
   resolve2 as resolve,
   screen,
   screenEvent,
-  search2 as search
+  search2 as search,
+  section
 };

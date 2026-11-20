@@ -1,6 +1,7 @@
-// Pelisgo's own browse screen: one merged bar, three tabs (Inicio / Películas / Series), a hero carousel and poster
-// rails from /api/trending, plus a search page. A pure view of what the controller holds; data loads in the `open`
-// and `tick` events (screen() itself never touches the network). Modeled on the Latino plugin's browse screen.
+// Pelisgo's browse screen: one merged bar with search + settings, three tabs (Inicio / Películas / Series), a hero
+// carousel and poster rails from /api/trending. The search icon turns the bar's title into a text field and hands
+// the query to Kino's native search (go.search); the settings icon opens a small screen with the donate button.
+// A pure view of what the controller holds; data loads in the `open`/`tick` events (screen() never touches the net).
 import { RESOLVER_REPO } from "./resolve-door.js";
 
 const TABS = [
@@ -12,9 +13,7 @@ const TAB_IDS = TABS.map((t) => t.id);
 const SUPPORT_URL = "https://ko-fi.com/xuperplugins";
 const twin = (es, en, field = "text") => ({ [field]: es, [field + "En"]: en });
 
-const logo = () => ({ type: "Text", text: "Pelisgo", textEn: "Pelisgo", style: "h4" });
-
-/** The donate affordance under every install gate: a QR on TV (a remote can't open a link), a heart button elsewhere. */
+/** The donate affordance: a QR on TV (a remote can't open a link), a heart button elsewhere. */
 function supportNode(device) {
   if (device === "tv") {
     return { type: "QrImage", value: SUPPORT_URL, size: "large",
@@ -24,7 +23,7 @@ function supportNode(device) {
     labelTextEn: "If you like my work, support me", onPressed: { go: { url: { href: SUPPORT_URL } } } };
 }
 
-/** Shown as the first screen while kino-resolver (the playback engine) is not installed; the donate button sits under it. */
+/** The first screen while kino-resolver (the playback engine) is not installed; the donate button sits under it. */
 function installGateView(device) {
   return {
     type: "Scaffold", key: "pg-install",
@@ -42,9 +41,7 @@ function installGateView(device) {
   };
 }
 
-// ---- widget helpers ----
-
-// Kino's poster card takes the whole item; a movie/series opens its native title page (play / episodes) on tap.
+// ---- cards / rails / hero ----
 const card = (it, scope) => ({
   type: "titleCard", key: `${scope}-${it.id}`, size: "medium", item: it,
   onTap: { go: { title: { ref: it.ref, kind: it.kind, id: it.id, title: it.title } } },
@@ -66,7 +63,6 @@ const slide = (it) => ({
       onPressed: { go: { title: { ref: it.ref, kind: it.kind, id: it.id, title: it.title } } } },
   ],
 });
-
 const hero = (items) => (items.length === 1 ? slide(items[0])
   : { type: "PageView", key: "hero" + items.length, autoPlayMs: 6000, children: items.map(slide) });
 
@@ -78,12 +74,9 @@ const railSkeleton = (n) => ({ type: "Column", key: "sk" + n, gap: 8, children: 
 const tabBar = (active) => ({ type: "TabBar", key: "tabs", divider: false, value: active, onChanged: "tab",
   tabs: TABS.map((t) => ({ value: t.id, ...twin(t.es, t.en, "label") })) });
 
-/**
- * The browse controller. `loadHome()` -> `{ movies, series }` (Kino items); `searchItems(q)` -> items for the query.
- */
-export function makeScreen({ kino, loadHome, searchItems }) {
-  let home = null;        // { movies, series } once loaded
-  let found = null;       // { q, items } last search
+/** The browse controller. `loadHome()` -> `{ movies, series }` (Kino items). */
+export function makeScreen({ kino, loadHome }) {
+  let home = null; // { movies, series } once loaded
   const log = (...a) => { try { kino.log("[pelisgo]", ...a); } catch (_) { /* no log */ } };
 
   const rowsFor = (tab) => {
@@ -96,10 +89,36 @@ export function makeScreen({ kino, loadHome, searchItems }) {
     ];
   };
 
+  /** The settings screen the gear opens: for now, the donate button. */
+  function settingsView(device) {
+    return {
+      type: "Scaffold",
+      appBar: { type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
+        leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atrás", "Back", "tooltip"), onPressed: "back" },
+        title: "Pelisgo" },
+      body: { type: "SingleChildScrollView", key: "setp", children: [
+        { type: "Column", padding: 24, gap: 16, crossAxisAlignment: "stretch", children: [
+          { type: "Text", text: "Ajustes", textEn: "Settings", style: "h3" },
+          supportNode(device),
+        ] },
+      ] },
+    };
+  }
+
   function browseView(tab, st, device) {
-    const gear = { type: "IconButton", key: "settingsButton", icon: "settings", ...twin("Ajustes", "Settings", "tooltip"),
-      onPressed: { event: "go", arg: "settings" } };
-    const tv = device === "tv";
+    const appBar = st.searching
+      ? { type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
+          leading: { type: "IconButton", key: "backSearch", icon: "arrow_back", ...twin("Cerrar", "Close", "tooltip"), onPressed: "close_search" },
+          title: { type: "TextField", key: "q", kind: "search", autofocus: true, hintText: "Buscar en Pelisgo", hintTextEn: "Search Pelisgo",
+            onSubmitted: "search", trailingIcon: "search", trailingLabel: "Buscar", trailingLabelEn: "Search", onTrailingTap: "search" } }
+      : { type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
+          leading: { type: "IconButton", key: "close", icon: "close", ...twin("Cerrar", "Close", "tooltip"), onPressed: { go: { close: true } } },
+          actions: [
+            { type: "IconButton", key: "searchBtn", icon: "search", ...twin("Buscar", "Search", "tooltip"), onPressed: "open_search" },
+            { type: "IconButton", key: "settingsBtn", icon: "settings", ...twin("Ajustes", "Settings", "tooltip"), onPressed: { event: "go", arg: "settings" } },
+          ],
+          title: "Pelisgo" };
+
     const rows = rowsFor(tab);
     const body = [];
     let banner = null;
@@ -121,39 +140,13 @@ export function makeScreen({ kino, loadHome, searchItems }) {
       body.push(railSkeleton(1), railSkeleton(2));
     }
     return {
-      type: "Scaffold",
-      appBar: { type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
-        leading: { type: "IconButton", key: "close", icon: "close", ...twin("Cerrar", "Close", "tooltip"), onPressed: { go: { close: true } } },
-        actions: tv ? [{ type: "IconButton", key: "searchButton", icon: "search", ...twin("Buscar", "Search", "tooltip"), onPressed: "openSearch" }, gear] : [gear],
-        title: tv ? { type: "Row", key: "tr", gap: 24, crossAxisAlignment: "center", children: [logo(), tabBar(tab)] } : "Pelisgo" },
-      ...(tv ? {} : { floatingActionButton: { type: "FloatingActionButton", key: "fab", icon: "search", ...twin("Buscar", "Search", "tooltip"), onPressed: "openSearch" } }),
+      type: "Scaffold", appBar,
       body: { type: "Column", key: "page", children: [
-        ...(tv ? [] : [{ type: "Column", key: "tabsRow", padding: { compact: 0, expanded: 24 }, children: [tabBar(tab)] }]),
+        tabBar(tab),
         { type: "SingleChildScrollView", key: "scroll-" + tab, flex: 1, children: [
-          ...(banner ? [banner] : []), { type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body } ] },
+          ...(banner ? [banner] : []), { type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] },
       ] },
       ...(home || st.failed ? {} : { every: { ms: 1200, event: "tick" } }),
-    };
-  }
-
-  function searchView(st, device) {
-    const q = typeof st.sq === "string" ? st.sq : "";
-    const items = found && found.q === q ? found.items : null;
-    const status = q === "" ? "idle" : st.sstate === "fail" ? "fail" : items ? "done" : "loading";
-    const form = { type: "Form", key: "sf", onSubmitted: "search", gap: 8, children: [
-      { type: "TextField", key: "q", kind: "text", value: q, ...twin("Buscar en Pelisgo", "Search Pelisgo", "labelText"), maxLength: 100, autofocus: true },
-      { type: "ElevatedButton", key: "sgo", ...twin("Buscar", "Search", "labelText"), icon: "search", submit: true },
-    ] };
-    const body = [form];
-    if (status === "fail") body.push({ type: "MaterialBanner", key: "sfail", role: "error", ...twin("La búsqueda falló.", "Search failed."), action: { ...twin("Reintentar", "Retry", "label"), onTap: "sretry" } });
-    else if (status === "done" && items) body.push(items.length ? { type: "GridView", key: "res", columns: { compact: 3, expanded: 6 }, children: items.slice(0, 60).map((it) => card(it, "res")) } : { type: "Text", ...twin("Sin resultados.", "No results.", "text"), color: "muted" });
-    else if (status === "loading") body.push(railSkeleton(1));
-    return {
-      type: "Scaffold",
-      appBar: { type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
-        leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atrás", "Back", "tooltip"), onPressed: "back" }, title: "Pelisgo" },
-      body: { type: "SingleChildScrollView", key: "sp", children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] },
-      ...(status === "loading" ? { every: { ms: 1000, event: "stick" } } : {}),
     };
   }
 
@@ -161,18 +154,13 @@ export function makeScreen({ kino, loadHome, searchItems }) {
     const c = ctx && typeof ctx === "object" ? ctx : {};
     if (!(c.installed && c.installed[RESOLVER_REPO])) return installGateView(c.device);
     const st = c.state && typeof c.state === "object" ? c.state : {};
-    if (c.route && c.route.name === "settings") {
-      return { type: "Scaffold", appBar: { type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
-          leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("Atrás", "Back", "tooltip"), onPressed: "back" }, title: "Pelisgo" },
-        body: { type: "SingleChildScrollView", key: "setp", children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, children: [{ type: "settings", key: "form" }] }] } };
-    }
-    if (c.route && c.route.name === "search") return searchView(st, c.device);
+    if (c.route && c.route.name === "settings") return settingsView(c.device);
     const tab = TAB_IDS.includes(st.tab) ? st.tab : TAB_IDS[0];
     return browseView(tab, st, c.device);
   }
 
   const events = {
-    open({ state }) { return { state: { tab: TAB_IDS.includes(state.tab) ? state.tab : TAB_IDS[0], failed: false } }; },
+    open({ state }) { return { state: { tab: TAB_IDS.includes(state.tab) ? state.tab : TAB_IDS[0], failed: false, searching: false } }; },
     async tick() {
       if (home) return null;
       try { home = await loadHome(); return { state: { v: Date.now() } }; }
@@ -180,24 +168,18 @@ export function makeScreen({ kino, loadHome, searchItems }) {
     },
     retry() { home = null; return { state: { failed: false } }; },
     tab({ value, arg }) { const t = TAB_IDS.includes(value) ? value : TAB_IDS.includes(arg) ? arg : null; return t ? { state: { tab: t } } : null; },
-    openSearch() { return { route: { push: "search" }, state: { sq: "", sstate: null } }; },
-    search({ value, route }) {
-      const q = value && typeof value.q === "string" ? value.q.trim().slice(0, 100) : "";
-      if (!q) return null;
-      const state = { sq: q, sstate: "loading" };
-      return route && route.name === "search" ? { state } : { route: { push: "search" }, state };
+    // Search: the bar becomes a field; submitting hands the query to Kino's native search.
+    open_search() { return { state: { searching: true } }; },
+    close_search() { return { state: { searching: false } }; },
+    search({ value, state }) {
+      const typed = value != null && String(value).trim() ? value : (state.inputs && state.inputs.q);
+      const q = String(typed == null ? "" : typed).trim().slice(0, 100);
+      return q ? { go: { search: { q } }, state: { searching: false } } : { state: { searching: false } };
     },
-    async stick({ state }) {
-      const q = typeof state.sq === "string" ? state.sq : "";
-      if (!q || state.sstate !== "loading") return null;
-      try { found = { q, items: (await searchItems(q)) || [] }; return { state: { sstate: "done" } }; }
-      catch (e) { log("search", (e && e.code) || "error"); return { state: { sstate: "fail" } }; }
-    },
-    sretry({ state }) { return state.sq ? { state: { sstate: "loading" } } : null; },
     go({ arg }) { return arg === "settings" ? { route: { push: "settings" }, state: { fromBrowse: true } } : null; },
     back({ state, route }) {
       if (route && route.name === "settings" && !state.fromBrowse) return { close: true };
-      return { route: { pop: true }, state: { sq: null, sstate: null } };
+      return { route: { pop: true } };
     },
   };
 

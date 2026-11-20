@@ -34,6 +34,16 @@ export async function browse(ref, cursor) {
   return browsePage(kino, ref, cursor, { untilMs: dl.end });
 }
 
+/** `section()`: the plugin's own section in Kino's browse — Pelisgo's trending rows with a hero. */
+export async function section() {
+  const kino = getKino();
+  const dl = callDeadline(kino, "section");
+  let rows = [];
+  try { rows = await homeRows(kino, { untilMs: dl.end }); } catch (e) { kino.log("[pelisgo]", "section", (e && e.code) || "error"); }
+  const first = rows[0] && rows[0].items.find((i) => i.backdrop);
+  return { rows, ...(first ? { hero: { title: first.title, image: first.backdrop } } : {}) };
+}
+
 /** `episodes(ref)`: a series' episodes, from its server-rendered page. */
 export async function episodes(ref) {
   const kino = getKino();
@@ -60,7 +70,6 @@ const theScreen = () => (screenInstance ??= makeScreen({
     const byId = (id) => (rows.find((r) => r.id === id) || { items: [] }).items;
     return { movies: byId("pg-trending-movie"), series: byId("pg-trending-series") };
   },
-  searchItems: (q) => searchItems(getKino(), q, { untilMs: callDeadline(getKino(), "section").end }),
 }));
 
 /** `screen(ctx)`: a pure view — the install gate while kino-resolver is missing, else the browse screen. */

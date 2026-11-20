@@ -1,0 +1,149 @@
+{
+  "id": "pelisgo",
+  "name": "Pelisgo",
+  "version": "0.1.0",
+  "apiVersion": 20,
+  "recommends": [
+    "xuper-plugin/kino-plugin-kino-resolver"
+  ],
+  "consumes": {
+    "resolver": {
+      "repo": "xuper-plugin/kino-plugin-kino-resolver",
+      "door": "resolver",
+      "calls": [
+        "resolve",
+        "normalizeHost"
+      ]
+    }
+  },
+  "entry": "plugin.js",
+  "icon": "icon.png",
+  "description": "Películas y series en español latino, castellano o subtituladas desde Pelisgo",
+  "author": "xuper-plugin",
+  "homepage": "https://github.com/xuper-plugin/kino-plugin-pelisgo",
+  "hosts": [
+    "pelisgo.online",
+    "www.pelisgo.online",
+    "image.tmdb.org",
+    "api.themoviedb.org",
+    "voe.sx",
+    "*.voe.sx",
+    "streamwish.com",
+    "*.streamwish.com",
+    "streamwish.to",
+    "*.streamwish.to",
+    "hlswish.com",
+    "*.hlswish.com",
+    "strwish.com",
+    "*.strwish.com",
+    "wishembed.com",
+    "*.wishembed.com",
+    "filelions.com",
+    "*.filelions.com",
+    "filelions.to",
+    "*.filelions.to",
+    "vidhide.com",
+    "*.vidhide.com",
+    "vidhidepro.com",
+    "*.vidhidepro.com",
+    "vidhideplus.com",
+    "*.vidhideplus.com",
+    "vidhidefast.com",
+    "*.vidhidefast.com",
+    "fastream.to",
+    "*.fastream.to",
+    "goodstream.one",
+    "*.goodstream.one",
+    "ok.ru",
+    "*.ok.ru",
+    "mixdrop.ag",
+    "*.mixdrop.ag"
+  ],
+  "capabilities": [
+    "search",
+    "home",
+    "browse",
+    "episodes",
+    "resolve",
+    "screen"
+  ],
+  "streamHosts": "any",
+  "categories": [
+    "movies",
+    "series"
+  ],
+  "color": "#1E6FD9",
+  "theme": {
+    "accent": "#1E6FD9",
+    "onAccent": "#FFFFFF",
+    "background": "#080B12",
+    "surface": "#111725",
+    "highlight": "#9EC5FF"
+  },
+  "browser": true,
+  "settings": [
+    {
+      "key": "langSection",
+      "type": "section",
+      "label": "Idioma y calidad",
+      "labelEn": "Language and quality",
+      "hint": "Qué copia se abre primero cuando un título tiene varias.",
+      "hintEn": "Which copy opens first when a title has several."
+    },
+    {
+      "key": "preferred",
+      "type": "select",
+      "label": "Idioma preferido",
+      "labelEn": "Preferred language",
+      "default": "lat",
+      "options": [
+        { "value": "lat", "label": "Latino", "labelEn": "Latin Spanish" },
+        { "value": "esp", "label": "Castellano", "labelEn": "Spain Spanish" },
+        { "value": "sub", "label": "Subtitulado", "labelEn": "Subtitled" }
+      ]
+    },
+    {
+      "key": "maxQuality",
+      "type": "select",
+      "label": "Calidad máxima",
+      "labelEn": "Maximum quality",
+      "default": "auto",
+      "options": [
+        { "value": "auto", "label": "Automática", "labelEn": "Automatic" },
+        { "value": "1080p", "label": "Hasta 1080p", "labelEn": "Up to 1080p" },
+        { "value": "720p", "label": "Hasta 720p", "labelEn": "Up to 720p" },
+        { "value": "480p", "label": "Hasta 480p (ahorra datos)", "labelEn": "Up to 480p (saves data)" }
+      ]
+    },
+    {
+      "key": "homeSection",
+      "type": "section",
+      "label": "Inicio",
+      "labelEn": "Home"
+    },
+    {
+      "key": "homeRows",
+      "type": "toggle",
+      "label": "Filas en Inicio",
+      "labelEn": "Rows on Home",
+      "default": true,
+      "hint": "Muestra los estrenos de Pelisgo en el Inicio de Kino.",
+      "hintEn": "Shows Pelisgo's new releases on Kino's Home."
+    }
+  ],
+  "screen": {
+    "label": "Pelisgo",
+    "labelEn": "Pelisgo",
+    "icon": "movie",
+    "menuOpens": "screen",
+    "opensFrom": [
+      "menu",
+      "settings"
+    ],
+    "settingsButton": {
+      "label": "Abrir Pelisgo",
+      "labelEn": "Open Pelisgo"
+    },
+    "settingsIn": "screen"
+  }
+}

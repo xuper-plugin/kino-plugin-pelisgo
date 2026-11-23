@@ -1,7 +1,7 @@
 {
   "id": "pelisgo",
   "name": "Pelisgo",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "apiVersion": 30,
   "recommends": [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -101,9 +101,21 @@
       "labelEn": "Preferred language",
       "default": "lat",
       "options": [
-        { "value": "lat", "label": "Latino", "labelEn": "Latin Spanish" },
-        { "value": "esp", "label": "Castellano", "labelEn": "Spain Spanish" },
-        { "value": "sub", "label": "Subtitulado", "labelEn": "Subtitled" }
+        {
+          "value": "lat",
+          "label": "Latino",
+          "labelEn": "Latin Spanish"
+        },
+        {
+          "value": "esp",
+          "label": "Castellano",
+          "labelEn": "Spain Spanish"
+        },
+        {
+          "value": "sub",
+          "label": "Subtitulado",
+          "labelEn": "Subtitled"
+        }
       ]
     },
     {
@@ -113,10 +125,26 @@
       "labelEn": "Maximum quality",
       "default": "auto",
       "options": [
-        { "value": "auto", "label": "Automática", "labelEn": "Automatic" },
-        { "value": "1080p", "label": "Hasta 1080p", "labelEn": "Up to 1080p" },
-        { "value": "720p", "label": "Hasta 720p", "labelEn": "Up to 720p" },
-        { "value": "480p", "label": "Hasta 480p (ahorra datos)", "labelEn": "Up to 480p (saves data)" }
+        {
+          "value": "auto",
+          "label": "Automática",
+          "labelEn": "Automatic"
+        },
+        {
+          "value": "1080p",
+          "label": "Hasta 1080p",
+          "labelEn": "Up to 1080p"
+        },
+        {
+          "value": "720p",
+          "label": "Hasta 720p",
+          "labelEn": "Up to 720p"
+        },
+        {
+          "value": "480p",
+          "label": "Hasta 480p (ahorra datos)",
+          "labelEn": "Up to 480p (saves data)"
+        }
       ]
     },
     {
@@ -149,5 +177,36 @@
       "labelEn": "Open Pelisgo"
     },
     "settingsIn": "both"
+  },
+  "provides": {
+    "catalog": {
+      "summary": "Titles this plugin finds, for the author's other plugins",
+      "calls": {
+        "search": {
+          "in": {
+            "q": "string",
+            "type": "string?"
+          },
+          "out": "Item[]"
+        }
+      },
+      "types": {
+        "Item": {
+          "id": "string",
+          "ref": "string",
+          "title": "string",
+          "kind": "string",
+          "poster": "string?",
+          "backdrop": "string?",
+          "year": "string?",
+          "overview": "string?",
+          "tmdb": "number?"
+        }
+      }
+    }
+  },
+  "signature": {
+    "authorKey": "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
+    "value": "8c826f66d273c25e78bc161e69cbfc625f04d92f5fe7afb26899b5d48e38eeb6bc97ec22b83fc930528c895062c3c378527e69a2fdab6917b4df1fd9da40a406"
   }
 }

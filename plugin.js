@@ -45,7 +45,7 @@ function readSettings(kino) {
 var kino_plugin_default = {
   id: "pelisgo",
   name: "Pelisgo",
-  version: "0.1.3",
+  version: "0.1.4",
   apiVersion: 20,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -585,7 +585,7 @@ async function resolveViaHelper(e, kino, source) {
   }
   let streams = res && Array.isArray(res.streams) ? res.streams.slice() : [];
   const subtitles = res && Array.isArray(res.subtitles) ? res.subtitles.filter((x) => x && x.lang && x.url) : [];
-  if (!streams.length) streams = await captureStreams(kino, embedUrl, referer);
+  if (!streams.length && !(res && res.error === "dead")) streams = await captureStreams(kino, embedUrl, referer);
   const s = pickBest(streams);
   if (!s) return null;
   const headers = headersOf(s);

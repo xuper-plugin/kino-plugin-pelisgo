@@ -45,7 +45,7 @@ function readSettings(kino) {
 var kino_plugin_default = {
   id: "pelisgo",
   name: "Pelisgo",
-  version: "0.2.3",
+  version: "0.2.4",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -192,7 +192,7 @@ var kino_plugin_default = {
       label: "Abrir Pelisgo",
       labelEn: "Open Pelisgo"
     },
-    settingsIn: "screen"
+    settingsIn: "both"
   }
 };
 
@@ -1265,7 +1265,8 @@ function makeStandardScreen({ kino, name, nameEn, logo = null, logoAspect = "1:1
     },
     retry({ state }) {
       const tab = TAB_IDS.includes(state.tab) ? state.tab : TAB_IDS[0];
-      return { state: { failed: null, pending: [tab] } };
+      const queued = Array.isArray(state.pending) ? state.pending.filter((t) => t !== tab) : [];
+      return { state: { failed: null, pending: [tab, ...queued] } };
     },
     async tick({ state }) {
       const pending = Array.isArray(state.pending) ? state.pending : [];

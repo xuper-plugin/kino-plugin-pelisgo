@@ -323,3 +323,10 @@ test("a row marked hidden feeds the slides only: it is not drawn as a rail", asy
   assert.deepEqual(rails.map((r) => r.title), ["Estrenos"]);
   assert.equal(all.find((n) => n.type === "heroCard").title, "Title 7");
 });
+
+test("a row's English title reaches its rail", async () => {
+  const s = make({ loadTab: async () => ({ rows: [{ id: "r", title: "Recién agregadas", titleEn: "Recently added", items: [item(1)] }] }) });
+  const rail = nodes(await s.screen({ state: await loaded(s), device: "phone", installed })).find((n) => n.type === "titleRail");
+  assert.equal(rail.title, "Recién agregadas");
+  assert.equal(rail.titleEn, "Recently added");
+});

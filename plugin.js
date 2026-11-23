@@ -45,7 +45,7 @@ function readSettings(kino) {
 var kino_plugin_default = {
   id: "pelisgo",
   name: "Pelisgo",
-  version: "0.2.0",
+  version: "0.2.1",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -742,6 +742,7 @@ function railsOf(rows) {
   return rows.filter((r) => !r.hidden && r.items && r.items.length > 0).slice(0, MAX_RAILS).map((r) => ({
     id: r.id,
     title: r.title,
+    ...r.titleEn ? { titleEn: r.titleEn } : {},
     ...r.ref ? { ref: r.ref } : {},
     items: uniform(r.items.slice(0, MAX_RAIL_ITEMS).map(cardOf))
   }));

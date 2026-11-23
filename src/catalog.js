@@ -1,6 +1,6 @@
 // The catalog comes from Pelisgo's own API (a plugin OF pelisgo). Home is /api/trending, split into a Movies row
 // and a Series row; search is /api/search. Both are TMDB-keyed rows the resolve bridge turns into playable copies.
-import { requester, trending, search as apiSearch } from "./api.js";
+import { requester, trending, listPage, search as apiSearch } from "./api.js";
 import { itemFromTrending, itemFromSearch } from "./mappers.js";
 
 /** `home()` rows: Pelisgo's trending, split by kind. `[{ id, title, titleEn, items }]`. */
@@ -12,6 +12,33 @@ export async function homeRows(kino, { untilMs } = {}) {
   const rows = [];
   if (movies.length) rows.push({ id: "pg-trending-movie", title: "Tendencias en películas", titleEn: "Trending movies", items: movies });
   if (series.length) rows.push({ id: "pg-trending-series", title: "Tendencias en series", titleEn: "Trending series", items: series });
+  return rows;
+}
+
+/** The site's listing pages the screen shows as rows, per tab (each card carries its cuid: it plays without a bridge). */
+export const LIST_ROWS = {
+  inicio: [["/movies", "Películas recientes", "Latest movies"], ["/series", "Series recientes", "Latest series"],
+    ["/genre/accion", "Acción", "Action"], ["/genre/comedia", "Comedia", "Comedy"], ["/genre/terror", "Terror", "Horror"]],
+  peliculas: [["/movies", "Películas recientes", "Latest movies"], ["/genre/accion", "Acción", "Action"], ["/genre/comedia", "Comedia", "Comedy"],
+    ["/genre/terror", "Terror", "Horror"], ["/genre/drama", "Drama", "Drama"], ["/genre/animacion", "Animación", "Animation"],
+    ["/genre/ciencia-ficcion", "Ciencia ficción", "Science fiction"]],
+  series: [["/series", "Series recientes", "Latest series"]],
+};
+
+/** A tab of the screen: the trending rows of its kind, then the site's listing pages (LIST_ROWS), fetched together. */
+export async function tabRows(kino, tab, { untilMs } = {}) {
+  const trendingRows = await homeRows(kino, { untilMs }).catch(() => []);
+  const want = tab === "peliculas" ? ["pg-trending-movie"] : tab === "series" ? ["pg-trending-series"] : ["pg-trending-movie", "pg-trending-series"];
+  const rows = trendingRows.filter((r) => want.includes(r.id));
+  const lists = LIST_ROWS[tab] || LIST_ROWS.inicio;
+  const req = requester(kino, { untilMs });
+  const pages = await Promise.all(lists.map(([path]) => listPage(kino, req, path).catch(() => [])));
+  // A page that came back empty (the site refusing a burst) is asked once more, alone.
+  for (const [i, [path]] of lists.entries()) if (pages[i].length === 0) pages[i] = await listPage(kino, req, path).catch(() => []);
+  lists.forEach(([path, title, titleEn], i) => {
+    const items = pages[i].map(itemFromSearch).filter(Boolean);
+    if (items.length) rows.push({ id: "pg-list" + path.replace(/[^a-z0-9]+/g, "-"), title, titleEn, items });
+  });
   return rows;
 }
 

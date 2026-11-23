@@ -4,7 +4,7 @@
 // Refs (src/mappers.js): pg:c:<m|s>:<cuid>[:<slug>] · pg:t:<m|s>:<tmdb>:<year>:<slug> · pg:e:<epCuid> · pg:x:<embedUrl>
 import { callDeadline } from "./util/time.js";
 import { readSettings } from "./settings.js";
-import { homeRows, searchItems, browsePage } from "./catalog.js";
+import { homeRows, tabRows, searchItems, browsePage } from "./catalog.js";
 import { resolve as doResolve } from "./resolve.js";
 import { episodes as doEpisodes } from "./episodes.js";
 import { resolverInstalled } from "./resolve-door.js";
@@ -80,13 +80,10 @@ const standard = () => (std ??= makeStandardScreen({
     { id: "peliculas", label: "Películas", labelEn: "Movies" },
     { id: "series", label: "Series", labelEn: "Series" },
   ],
-  // Pelisgo's trending rows: Inicio has both, Películas and Series one each.
+  // Each tab: Pelisgo's trending of its kind, then the site's listing pages (recent, genres): catalog.js LIST_ROWS.
   loadTab: async (tab) => {
     const kino = getKino();
-    const rows = await homeRows(kino, { untilMs: callDeadline(kino, "section").end });
-    const movies = rows.filter((x) => x.id === "pg-trending-movie");
-    const series = rows.filter((x) => x.id === "pg-trending-series");
-    return { rows: tab === "peliculas" ? movies : tab === "series" ? series : [...movies, ...series] };
+    return { rows: await tabRows(kino, tab, { untilMs: callDeadline(kino, "section").end }) };
   },
 }));
 

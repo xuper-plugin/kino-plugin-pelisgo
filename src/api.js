@@ -35,6 +35,28 @@ export function requester(kino, { untilMs, budget = 24 } = {}) {
   return makeRequester(kino, { budget, deadline: untilMs || Date.now() + 8000, maxMs: 8000 });
 }
 
+/**
+ * A listing page of the site (/movies, /series, /genre/<slug>): its cards, read from the page's own data (the server-rendered
+ * payload holds each card as { id(cuid), title, slug, poster, year, rating, type }, the shape /api/search answers). [] on failure.
+ */
+export async function listPage(kino, req, path) {
+  const r = await req(ORIGIN + path, { headers: { Accept: "text/html" } });
+  if (!r || !r.ok) return [];
+  const html = String(await r.text()).replace(/\\"/g, "\"");
+  const out = [];
+  const seen = new Set();
+  const re = /\{"id":"([a-z0-9]{20,40})","title":"((?:[^"\\]|\\.)*)","slug":"([a-z0-9-]+)","poster":"([^"]*)","year":(\d{4}|null),"rating":([\d.]+|null),"type":"([a-z]+)"/g;
+  for (let m; (m = re.exec(html)) !== null;) {
+    if (seen.has(m[1])) continue;
+    seen.add(m[1]);
+    let title = m[2];
+    try { title = JSON.parse("\"" + m[2] + "\""); } catch (_) { /* keep it raw */ }
+    out.push({ id: m[1], title, slug: m[3], poster: /^https:\/\//.test(m[4]) ? m[4] : "", year: m[5] === "null" ? "" : m[5],
+      rating: m[6] === "null" ? undefined : Number(m[6]), type: m[7] });
+  }
+  return out;
+}
+
 /** A JSON body, or null when the request failed or the body is not JSON. */
 async function getJson(req, url, opts) {
   const r = await req(url, opts || {});

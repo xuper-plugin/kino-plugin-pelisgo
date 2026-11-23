@@ -45,7 +45,7 @@ function readSettings(kino) {
 var kino_plugin_default = {
   id: "pelisgo",
   name: "Pelisgo",
-  version: "0.2.6",
+  version: "0.2.7",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -66,6 +66,7 @@ var kino_plugin_default = {
   author: "xuper-plugin",
   homepage: "https://github.com/xuper-plugin/kino-plugin-pelisgo",
   hosts: [
+    "raw.githubusercontent.com",
     "pelisgo.online",
     "www.pelisgo.online",
     "image.tmdb.org",
@@ -251,7 +252,7 @@ var kino_plugin_default = {
   },
   signature: {
     authorKey: "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    value: "8c826f66d273c25e78bc161e69cbfc625f04d92f5fe7afb26899b5d48e38eeb6bc97ec22b83fc930528c895062c3c378527e69a2fdab6917b4df1fd9da40a406"
+    value: "1316efba1b151b5caf560d0c1fc5e9e5cc4bd8ed39c1424729ff68004e384d86a474b97d3031913c18eebe7cf1c128666075d15ac652c869bba72a4fb90df109"
   }
 };
 
@@ -377,6 +378,33 @@ var APP_HEADERS = {
 var appHeaders = (referer) => ({ ...APP_HEADERS, Referer: referer || ORIGIN + "/" });
 function requester(kino, { untilMs, budget = 24 } = {}) {
   return makeRequester(kino, { budget, deadline: untilMs || Date.now() + 8e3, maxMs: 8e3 });
+}
+async function listPage(kino, req, path) {
+  const r = await req(ORIGIN + path, { headers: { Accept: "text/html" } });
+  if (!r || !r.ok) return [];
+  const html = String(await r.text()).replace(/\\"/g, '"');
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  const re = /\{"id":"([a-z0-9]{20,40})","title":"((?:[^"\\]|\\.)*)","slug":"([a-z0-9-]+)","poster":"([^"]*)","year":(\d{4}|null),"rating":([\d.]+|null),"type":"([a-z]+)"/g;
+  for (let m; (m = re.exec(html)) !== null; ) {
+    if (seen.has(m[1])) continue;
+    seen.add(m[1]);
+    let title = m[2];
+    try {
+      title = JSON.parse('"' + m[2] + '"');
+    } catch (_) {
+    }
+    out.push({
+      id: m[1],
+      title,
+      slug: m[3],
+      poster: /^https:\/\//.test(m[4]) ? m[4] : "",
+      year: m[5] === "null" ? "" : m[5],
+      rating: m[6] === "null" ? void 0 : Number(m[6]),
+      type: m[7]
+    });
+  }
+  return out;
 }
 async function getJson(req, url, opts) {
   const r = await req(url, opts || {});
@@ -529,6 +557,39 @@ async function homeRows(kino, { untilMs } = {}) {
   const rows = [];
   if (movies.length) rows.push({ id: "pg-trending-movie", title: "Tendencias en pel\xEDculas", titleEn: "Trending movies", items: movies });
   if (series.length) rows.push({ id: "pg-trending-series", title: "Tendencias en series", titleEn: "Trending series", items: series });
+  return rows;
+}
+var LIST_ROWS = {
+  inicio: [
+    ["/movies", "Pel\xEDculas recientes", "Latest movies"],
+    ["/series", "Series recientes", "Latest series"],
+    ["/genre/accion", "Acci\xF3n", "Action"],
+    ["/genre/comedia", "Comedia", "Comedy"],
+    ["/genre/terror", "Terror", "Horror"]
+  ],
+  peliculas: [
+    ["/movies", "Pel\xEDculas recientes", "Latest movies"],
+    ["/genre/accion", "Acci\xF3n", "Action"],
+    ["/genre/comedia", "Comedia", "Comedy"],
+    ["/genre/terror", "Terror", "Horror"],
+    ["/genre/drama", "Drama", "Drama"],
+    ["/genre/animacion", "Animaci\xF3n", "Animation"],
+    ["/genre/ciencia-ficcion", "Ciencia ficci\xF3n", "Science fiction"]
+  ],
+  series: [["/series", "Series recientes", "Latest series"]]
+};
+async function tabRows(kino, tab, { untilMs } = {}) {
+  const trendingRows = await homeRows(kino, { untilMs }).catch(() => []);
+  const want = tab === "peliculas" ? ["pg-trending-movie"] : tab === "series" ? ["pg-trending-series"] : ["pg-trending-movie", "pg-trending-series"];
+  const rows = trendingRows.filter((r) => want.includes(r.id));
+  const lists = LIST_ROWS[tab] || LIST_ROWS.inicio;
+  const req = requester(kino, { untilMs });
+  const pages = await Promise.all(lists.map(([path]) => listPage(kino, req, path).catch(() => [])));
+  for (const [i, [path]] of lists.entries()) if (pages[i].length === 0) pages[i] = await listPage(kino, req, path).catch(() => []);
+  lists.forEach(([path, title, titleEn], i) => {
+    const items = pages[i].map(itemFromSearch).filter(Boolean);
+    if (items.length) rows.push({ id: "pg-list" + path.replace(/[^a-z0-9]+/g, "-"), title, titleEn, items });
+  });
   return rows;
 }
 async function searchItems(kino, q, { untilMs, lean } = {}) {
@@ -1187,9 +1248,38 @@ var INFLIGHT_KEY = "std:inflight";
 var INFLIGHT_STALE_MS = 18e3;
 var MAX_META_TICKS = 10;
 var DEFAULT_TABS = [{ id: "inicio", label: "Inicio", labelEn: "Home" }];
-function makeStandardScreen({ kino, name, nameEn, logo = null, logoAspect = "1:1", needsResolver, hasSettings, tabs, loadTab, homeKey = null, titleOf: titleOf2, typeOf, tmdbPictures = false, imageHeaders = null, searchHere = null, page = null, barSearch = true, backArrow = true }) {
+var SNAPSHOT_VERSION = 1;
+var SNAPSHOT_MAX_AGE_MS = 24 * 60 * 60 * 1e3;
+var SNAPSHOT_TIMEOUT_MS = 8e3;
+var snapshotUrl = (repo, tab) => "https://raw.githubusercontent.com/" + repo + "/main/home/" + encodeURIComponent(tab) + ".json";
+function snapshotRows(text, tab, now = Date.now()) {
+  let o;
+  try {
+    o = JSON.parse(String(text));
+  } catch (_) {
+    return null;
+  }
+  if (!o || o.v !== SNAPSHOT_VERSION || o.tab !== tab || !Array.isArray(o.rows) || o.rows.length === 0) return null;
+  const at = Number(o.at);
+  if (!Number.isFinite(at) || now - at > SNAPSHOT_MAX_AGE_MS || at - now > 60 * 60 * 1e3) return null;
+  return o.rows;
+}
+var lastSource = null;
+function makeStandardScreen({ kino, name, nameEn, logo = null, logoAspect = "1:1", needsResolver, hasSettings, tabs, loadTab, homeKey = null, titleOf: titleOf2, typeOf, tmdbPictures = false, imageHeaders = null, searchHere = null, page = null, barSearch = true, backArrow = true, snapshot = null }) {
   const cfg = { name, nameEn, logo, logoAspect, imageHeaders, hasSettings: !!hasSettings, barSearch: barSearch !== false, backArrow: backArrow !== false, tabs: Array.isArray(tabs) && tabs.length > 0 ? tabs : DEFAULT_TABS };
   const TAB_IDS = cfg.tabs.map((t) => t.id);
+  lastSource = { tabs: cfg.tabs, loadTab, titleOf: titleOf2, typeOf };
+  async function fromSnapshot(tab) {
+    if (typeof snapshot !== "string" || !/^[\w.-]+\/[\w.-]+$/.test(snapshot)) return null;
+    try {
+      const r = await kino.fetch(snapshotUrl(snapshot, tab), { timeoutMs: SNAPSHOT_TIMEOUT_MS });
+      if (!r || !r.ok) return null;
+      const rows = snapshotRows(await r.text(), tab);
+      return rows ? { rows } : null;
+    } catch (_) {
+      return null;
+    }
+  }
   const meta = makeMetaCache({ kino, titleOf: titleOf2, typeOf, tmdbPictures });
   function slidesFromMeta(rails) {
     const out = [];
@@ -1354,7 +1444,7 @@ function makeStandardScreen({ kino, name, nameEn, logo = null, logoAspect = "1:1
     set(INFLIGHT_KEY, JSON.stringify({ tab, at: Date.now() }));
     let page2;
     try {
-      page2 = await loadTab(tab);
+      page2 = await fromSnapshot(tab) || await loadTab(tab);
     } finally {
       try {
         kino.storage.remove(INFLIGHT_KEY);
@@ -1598,6 +1688,7 @@ async function resolve2(ref) {
 }
 var std = null;
 var standard = () => std ?? (std = makeStandardScreen({
+  snapshot: "xuper-plugin/kino-plugin-pelisgo",
   kino: getKino(),
   name: "Pelisgo",
   logo: LOGO,
@@ -1609,13 +1700,10 @@ var standard = () => std ?? (std = makeStandardScreen({
     { id: "peliculas", label: "Pel\xEDculas", labelEn: "Movies" },
     { id: "series", label: "Series", labelEn: "Series" }
   ],
-  // Pelisgo's trending rows: Inicio has both, Películas and Series one each.
+  // Each tab: Pelisgo's trending of its kind, then the site's listing pages (recent, genres): catalog.js LIST_ROWS.
   loadTab: async (tab) => {
     const kino = getKino();
-    const rows = await homeRows(kino, { untilMs: callDeadline(kino, "section").end });
-    const movies = rows.filter((x) => x.id === "pg-trending-movie");
-    const series = rows.filter((x) => x.id === "pg-trending-series");
-    return { rows: tab === "peliculas" ? movies : tab === "series" ? series : [...movies, ...series] };
+    return { rows: await tabRows(kino, tab, { untilMs: callDeadline(kino, "section").end }) };
   }
 }));
 async function screen(ctx) {

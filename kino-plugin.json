@@ -1,7 +1,7 @@
 {
   "id": "pelisgo",
   "name": "Pelisgo",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "apiVersion": 30,
   "recommends": [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -22,6 +22,7 @@
   "author": "xuper-plugin",
   "homepage": "https://github.com/xuper-plugin/kino-plugin-pelisgo",
   "hosts": [
+    "raw.githubusercontent.com",
     "pelisgo.online",
     "www.pelisgo.online",
     "image.tmdb.org",
@@ -207,6 +208,6 @@
   },
   "signature": {
     "authorKey": "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    "value": "1316efba1b151b5caf560d0c1fc5e9e5cc4bd8ed39c1424729ff68004e384d86a474b97d3031913c18eebe7cf1c128666075d15ac652c869bba72a4fb90df109"
+    "value": "bd6998a144e7534754a62d5b5000d3cecf94d9bc3f19333f8502fb79878255571bbd6a557a82313094bc18e565228af09dfd453853fa81c288ce376d2724ae0f"
   }
 }

@@ -7,7 +7,9 @@ import { readSettings } from "./settings.js";
 import { homeRows, searchItems, browsePage } from "./catalog.js";
 import { resolve as doResolve } from "./resolve.js";
 import { episodes as doEpisodes } from "./episodes.js";
-import { makeScreen } from "./screen.js";
+import { resolverInstalled } from "./resolve-door.js";
+import { makeStandardScreen } from "./std/index.js";
+import { LOGO, LOGO_ASPECT } from "./logo.js";
 
 const getKino = () => globalThis.kino;
 
@@ -54,28 +56,44 @@ export async function episodes(ref) {
 /** `resolve(ref)`: one copy in the person's language, the rest as alternatives. */
 export async function resolve(ref) {
   const kino = getKino();
+  // Every hoster goes through kino-resolver: without it nothing plays, so the person is told how to get it.
+  if (!(await resolverInstalled(kino))) {
+    const es = String(kino.lang || "").toLowerCase().startsWith("es");
+    throw kino.error("unavailable", "resolver missing", { userMessage: es
+      ? "Para reproducir, abre Pelisgo desde el menú e instala el motor de reproducción que te pedirá."
+      : "To play, open Pelisgo from the menu and install the playback engine it asks for." });
+  }
   const dl = callDeadline(kino, "resolve");
   const { preferred } = readSettings(kino);
   return doResolve(kino, ref, { untilMs: dl.end, preferred });
 }
 
-// ---- the browse screen (install gate + donate live inside it) ----
+// ---- the screen: the standard xuper-plugin screen (src/std) ----
 
-let screenInstance = null;
-const theScreen = () => (screenInstance ??= makeScreen({
-  kino: getKino(),
-  loadHome: async () => {
+// Pelisgo delegates every hoster to kino-resolver (resolve() refuses while it is missing), so the screen is the install gate
+// until it is installed.
+let std = null;
+const standard = () => (std ??= makeStandardScreen({
+  kino: getKino(), name: "Pelisgo", logo: LOGO, logoAspect: LOGO_ASPECT, needsResolver: true, hasSettings: true,
+  tabs: [
+    { id: "inicio", label: "Inicio", labelEn: "Home" },
+    { id: "peliculas", label: "Películas", labelEn: "Movies" },
+    { id: "series", label: "Series", labelEn: "Series" },
+  ],
+  // Pelisgo's trending rows: Inicio has both, Películas and Series one each.
+  loadTab: async (tab) => {
     const kino = getKino();
     const rows = await homeRows(kino, { untilMs: callDeadline(kino, "section").end });
-    const byId = (id) => (rows.find((r) => r.id === id) || { items: [] }).items;
-    return { movies: byId("pg-trending-movie"), series: byId("pg-trending-series") };
+    const movies = rows.filter((x) => x.id === "pg-trending-movie");
+    const series = rows.filter((x) => x.id === "pg-trending-series");
+    return { rows: tab === "peliculas" ? movies : tab === "series" ? series : [...movies, ...series] };
   },
 }));
 
-/** `screen(ctx)`: a pure view — the install gate while kino-resolver is missing, else the browse screen. */
-export async function screen(ctx) { await null; return theScreen().view(ctx && typeof ctx === "object" ? ctx : {}); }
-/** `screenEvent(ev)`: the screen's timers load trending / run a search, one per tick. */
-export async function screenEvent(ev) { await null; return theScreen().event(ev && typeof ev === "object" ? ev : {}); }
+/** `screen(ctx)`: a pure view — the install gate while kino-resolver is missing, else the standard browse screen. */
+export async function screen(ctx) { await null; return standard().screen(ctx && typeof ctx === "object" ? ctx : {}); }
+/** `screenEvent(ev)`: the screen's timer loads a tab, one per tick; the bar's search goes to Kino's own search. */
+export async function screenEvent(ev) { await null; return standard().screenEvent(ev && typeof ev === "object" ? ev : {}); }
 
 // Let Kino drop a call's still-pending fetches at its budget instead of waiting on a slow source (Kino 0.9.55+).
 globalThis.__kinoDropPendingFetches = true;

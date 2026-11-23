@@ -6,7 +6,6 @@
 import { HLS_MIME } from "./util/servers.js";
 
 export const RESOLVER_ALIAS = "resolver";
-export const RESOLVER_REPO = "xuper-plugin/kino-plugin-kino-resolver";
 const CAPTURE_MS = 18000;
 
 /** A door/capture stream's headers (plain object or a [{name,value}] list) merged with its referer. */

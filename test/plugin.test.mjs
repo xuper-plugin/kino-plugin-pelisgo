@@ -97,3 +97,20 @@ test("resolve: the preferred language is ranked first", async () => {
   assert.match(r.url, /\/lat\//);
   assert.equal(r.label, "Latino · Lulustream · 720p");
 });
+
+test("home rows carry the type Kino files them under: trending movies Películas, trending series Series, the Familia page Infantil", async () => {
+  const { homeRows } = await import("../src/catalog.js");
+  const card = (id, type) => `{"id":"${id}","title":"T${id}","slug":"t${id}","poster":"https://x.example/p.jpg","year":2024,"rating":7.1,"type":"${type}"`;
+  globalThis.kino = {
+    log() {}, sleep: async () => {}, fetchAnyHost: true,
+    error: (code, message) => Object.assign(new Error(message || code), { code }),
+    async fetch(url) {
+      const body = url.includes("/api/trending")
+        ? JSON.stringify([{ id: 1, title: "A", year: "2024", mediaType: "movie" }, { id: 2, title: "B", year: "2024", mediaType: "tv" }])
+        : url.includes("/genre/familia") ? `<html>${card("a".repeat(25), "movie")},${card("b".repeat(25), "serie")},</html>` : "";
+      return { status: 200, ok: true, url, headers: {}, text: async () => body };
+    },
+  };
+  const rows = await homeRows(globalThis.kino);
+  assert.deepEqual(rows.map((r) => [r.id, r.genre]), [["pg-trending-movie", "peliculas"], ["pg-trending-series", "series"], ["pg-list-genre-familia", "infantil"]]);
+});

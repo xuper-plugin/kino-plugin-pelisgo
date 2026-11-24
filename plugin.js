@@ -45,7 +45,7 @@ function readSettings(kino) {
 var kino_plugin_default = {
   id: "pelisgo",
   name: "Pelisgo",
-  version: "0.2.7",
+  version: "0.2.8",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -252,7 +252,7 @@ var kino_plugin_default = {
   },
   signature: {
     authorKey: "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    value: "1316efba1b151b5caf560d0c1fc5e9e5cc4bd8ed39c1424729ff68004e384d86a474b97d3031913c18eebe7cf1c128666075d15ac652c869bba72a4fb90df109"
+    value: "bd6998a144e7534754a62d5b5000d3cecf94d9bc3f19333f8502fb79878255571bbd6a557a82313094bc18e565228af09dfd453853fa81c288ce376d2724ae0f"
   }
 };
 
@@ -549,6 +549,8 @@ function itemFromSearch(row) {
 }
 
 // src/catalog.js
+var ROW_TYPE = { "pg-trending-movie": "peliculas", "pg-trending-series": "series", "pg-list-movies": "peliculas", "pg-list-series": "series", "pg-list-genre-familia": "infantil" };
+var typed = (row) => ROW_TYPE[row.id] ? { ...row, genre: ROW_TYPE[row.id] } : row;
 async function homeRows(kino, { untilMs } = {}) {
   const req = requester(kino, { untilMs });
   const items = (await trending(kino, req)).map(itemFromTrending).filter(Boolean);
@@ -557,12 +559,15 @@ async function homeRows(kino, { untilMs } = {}) {
   const rows = [];
   if (movies.length) rows.push({ id: "pg-trending-movie", title: "Tendencias en pel\xEDculas", titleEn: "Trending movies", items: movies });
   if (series.length) rows.push({ id: "pg-trending-series", title: "Tendencias en series", titleEn: "Trending series", items: series });
-  return rows;
+  const family = (await listPage(kino, req, "/genre/familia").catch(() => [])).map(itemFromSearch).filter(Boolean);
+  if (family.length) rows.push({ id: "pg-list-genre-familia", title: "Para toda la familia", titleEn: "For the whole family", items: family });
+  return rows.map(typed);
 }
 var LIST_ROWS = {
   inicio: [
     ["/movies", "Pel\xEDculas recientes", "Latest movies"],
     ["/series", "Series recientes", "Latest series"],
+    ["/genre/familia", "Para toda la familia", "For the whole family"],
     ["/genre/accion", "Acci\xF3n", "Action"],
     ["/genre/comedia", "Comedia", "Comedy"],
     ["/genre/terror", "Terror", "Horror"]
@@ -588,7 +593,7 @@ async function tabRows(kino, tab, { untilMs } = {}) {
   for (const [i, [path]] of lists.entries()) if (pages[i].length === 0) pages[i] = await listPage(kino, req, path).catch(() => []);
   lists.forEach(([path, title, titleEn], i) => {
     const items = pages[i].map(itemFromSearch).filter(Boolean);
-    if (items.length) rows.push({ id: "pg-list" + path.replace(/[^a-z0-9]+/g, "-"), title, titleEn, items });
+    if (items.length) rows.push(typed({ id: "pg-list" + path.replace(/[^a-z0-9]+/g, "-"), title, titleEn, items }));
   });
   return rows;
 }
@@ -1553,8 +1558,8 @@ function makeStandardScreen({ kino, name, nameEn, logo = null, logoAspect = "1:1
       return { state: { searching: false, ui: null } };
     },
     async search({ value, state, device }) {
-      const typed = value && typeof value === "object" ? value.q : value;
-      const raw = typed != null && String(typed).trim() !== "" ? typed : state.inputs && state.inputs.q;
+      const typed2 = value && typeof value === "object" ? value.q : value;
+      const raw = typed2 != null && String(typed2).trim() !== "" ? typed2 : state.inputs && state.inputs.q;
       const q = String(raw == null ? "" : raw).trim().slice(0, Q_MAX);
       if (!q) return null;
       const closed = searchClosedOps(device === "tv" && TAB_IDS.length > 1);

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.9
+
+- The catalog door also lists a series' episodes, for the author's other plugins (std 1.10.0)
+
 ## 0.2.8
 
 - Home rows carry their type for Kino's Home by categories (Películas, Series) and a new Familia row is Infantil; the site has no anime

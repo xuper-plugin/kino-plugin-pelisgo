@@ -18,7 +18,7 @@ export async function homeRows(kino, { untilMs } = {}) {
   if (series.length) rows.push({ id: "pg-trending-series", title: "Tendencias en series", titleEn: "Trending series", items: series });
   // The site's own family page: its cards carry the site id, so they play without a bridge. One more gentle request; a failure leaves the row out.
   const family = (await listPage(kino, req, "/genre/familia").catch(() => [])).map(itemFromSearch).filter(Boolean);
-  if (family.length) rows.push({ id: "pg-list-genre-familia", title: "Para toda la familia", titleEn: "For the whole family", items: family });
+  if (family.length) rows.push({ id: "pg-list-genre-familia", title: "Para toda la familia", titleEn: "For the whole family", ref: listRef("/genre/familia"), items: family });
   return rows.map(typed);
 }
 
@@ -45,7 +45,7 @@ export async function tabRows(kino, tab, { untilMs } = {}) {
   for (const [i, [path]] of lists.entries()) if (pages[i].length === 0) pages[i] = await listPage(kino, req, path).catch(() => []);
   lists.forEach(([path, title, titleEn], i) => {
     const items = pages[i].map(itemFromSearch).filter(Boolean);
-    if (items.length) rows.push(typed({ id: "pg-list" + path.replace(/[^a-z0-9]+/g, "-"), title, titleEn, items }));
+    if (items.length) rows.push(typed({ id: "pg-list" + path.replace(/[^a-z0-9]+/g, "-"), title, titleEn, ref: listRef(path), items }));
   });
   return rows;
 }
@@ -60,10 +60,22 @@ export async function searchItems(kino, q, { untilMs, lean } = {}) {
   return want ? [...items.filter((i) => i.kind === want), ...items.filter((i) => i.kind !== want)] : items;
 }
 
-/** One home row by id, for a "Ver más" page (browse). Trending has no pagination, so page 0 is the row, later pages empty. */
-export async function browsePage(kino, ref, cursor, opts) {
-  if (cursor) return { items: [], cursor: null };
-  const rows = await homeRows(kino, opts);
-  const row = rows.find((r) => r.id === ref);
-  return { items: row ? row.items : [], cursor: null };
+const MAX_PAGE = 500;
+
+/** A listing row's "Ver más" ref: "list:<path>", the site's own listing page (its trending rows have no pages, so no ref). */
+export const listRef = (path) => "list:" + path;
+const LIST_PATH = /^list:(\/(?:movies|series|genre\/[a-z0-9-]{1,40}))$/;
+
+/**
+ * `browse(ref, cursor)`: one "Ver más" page of a listing row: the site's `<path>?page=N` (page 1 is the bare path). `next` (Kino
+ * reads it, never `cursor`) is the following page number while the page brought titles; past the last page the site answers none.
+ */
+export async function browsePage(kino, ref, cursor, { untilMs } = {}) {
+  const m = LIST_PATH.exec(String(ref || ""));
+  if (!m) return { items: [] };
+  const n = Number.parseInt(cursor, 10);
+  const page = n >= 1 && n <= MAX_PAGE ? n : 1;
+  const req = requester(kino, { untilMs });
+  const items = (await listPage(kino, req, m[1] + (page > 1 ? "?page=" + page : ""))).map(itemFromSearch).filter(Boolean);
+  return items.length && page < MAX_PAGE ? { items, next: String(page + 1) } : { items };
 }

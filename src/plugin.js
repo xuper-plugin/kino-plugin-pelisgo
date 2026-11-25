@@ -29,7 +29,7 @@ export async function home() {
   try { return await homeRows(kino, { untilMs: dl.end }); } catch (e) { kino.log("[pelisgo]", "home", (e && e.code) || "error"); return []; }
 }
 
-/** `browse(ref, cursor)`: a "Ver más" of a home row (trending has no pages, so later pages are empty). */
+/** `browse(ref, cursor)`: a "Ver más" of a listing row (recent movies or series, a genre), page by page; trending rows have no pages and no ref. */
 export async function browse(ref, cursor) {
   const kino = getKino();
   const dl = callDeadline(kino, "browse");

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.10
+
+- Home rows open their full list with Ver más: the recent movies, recent series and genre rows page through the site's own listing
+
 ## 0.2.9
 
 - The catalog door also lists a series' episodes, for the author's other plugins (std 1.10.1)

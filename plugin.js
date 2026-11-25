@@ -45,7 +45,7 @@ function readSettings(kino) {
 var kino_plugin_default = {
   id: "pelisgo",
   name: "Pelisgo",
-  version: "0.2.9",
+  version: "0.2.10",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -265,7 +265,7 @@ var kino_plugin_default = {
   },
   signature: {
     authorKey: "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    value: "3644c72f8a21f8a7470a84507288bf710956e891e496c8f1504b1aaa0482843aae470639c09b035883cc91b5347930e93bf102e7ba599c9cd6278116c9c22807"
+    value: "0b285c0d756a08e6f397faaf62a4c6a7222c72faf03dd6228647f795163540084ab380a398e062a552626e84bcd6fc59afc754e9752b1d0d118db562e2ee460a"
   }
 };
 
@@ -573,7 +573,7 @@ async function homeRows(kino, { untilMs } = {}) {
   if (movies.length) rows.push({ id: "pg-trending-movie", title: "Tendencias en pel\xEDculas", titleEn: "Trending movies", items: movies });
   if (series.length) rows.push({ id: "pg-trending-series", title: "Tendencias en series", titleEn: "Trending series", items: series });
   const family = (await listPage(kino, req, "/genre/familia").catch(() => [])).map(itemFromSearch).filter(Boolean);
-  if (family.length) rows.push({ id: "pg-list-genre-familia", title: "Para toda la familia", titleEn: "For the whole family", items: family });
+  if (family.length) rows.push({ id: "pg-list-genre-familia", title: "Para toda la familia", titleEn: "For the whole family", ref: listRef("/genre/familia"), items: family });
   return rows.map(typed);
 }
 var LIST_ROWS = {
@@ -606,7 +606,7 @@ async function tabRows(kino, tab, { untilMs } = {}) {
   for (const [i, [path]] of lists.entries()) if (pages[i].length === 0) pages[i] = await listPage(kino, req, path).catch(() => []);
   lists.forEach(([path, title, titleEn], i) => {
     const items = pages[i].map(itemFromSearch).filter(Boolean);
-    if (items.length) rows.push(typed({ id: "pg-list" + path.replace(/[^a-z0-9]+/g, "-"), title, titleEn, items }));
+    if (items.length) rows.push(typed({ id: "pg-list" + path.replace(/[^a-z0-9]+/g, "-"), title, titleEn, ref: listRef(path), items }));
   });
   return rows;
 }
@@ -618,11 +618,17 @@ async function searchItems(kino, q, { untilMs, lean } = {}) {
   const want = lean === "movie" || lean === "series" ? lean : null;
   return want ? [...items.filter((i) => i.kind === want), ...items.filter((i) => i.kind !== want)] : items;
 }
-async function browsePage(kino, ref, cursor, opts) {
-  if (cursor) return { items: [], cursor: null };
-  const rows = await homeRows(kino, opts);
-  const row = rows.find((r) => r.id === ref);
-  return { items: row ? row.items : [], cursor: null };
+var MAX_PAGE = 500;
+var listRef = (path) => "list:" + path;
+var LIST_PATH = /^list:(\/(?:movies|series|genre\/[a-z0-9-]{1,40}))$/;
+async function browsePage(kino, ref, cursor, { untilMs } = {}) {
+  const m = LIST_PATH.exec(String(ref || ""));
+  if (!m) return { items: [] };
+  const n = Number.parseInt(cursor, 10);
+  const page = n >= 1 && n <= MAX_PAGE ? n : 1;
+  const req = requester(kino, { untilMs });
+  const items = (await listPage(kino, req, m[1] + (page > 1 ? "?page=" + page : ""))).map(itemFromSearch).filter(Boolean);
+  return items.length && page < MAX_PAGE ? { items, next: String(page + 1) } : { items };
 }
 
 // src/bridge.js

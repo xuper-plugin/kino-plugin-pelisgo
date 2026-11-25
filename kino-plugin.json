@@ -1,7 +1,7 @@
 {
   "id": "pelisgo",
   "name": "Pelisgo",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "apiVersion": 30,
   "recommends": [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -221,6 +221,6 @@
   },
   "signature": {
     "authorKey": "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    "value": "0b285c0d756a08e6f397faaf62a4c6a7222c72faf03dd6228647f795163540084ab380a398e062a552626e84bcd6fc59afc754e9752b1d0d118db562e2ee460a"
+    "value": "205e45b66d47000260e19806c66028dbb59f0013e10fb3171d23b1fbabdd82264cc2f50804dd14739393607e49fed8916dd4a8c71daee07e10ba5a1961af3702"
   }
 }
